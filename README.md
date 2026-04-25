@@ -257,4 +257,4 @@ pytest
 
 ## License
 
-See the repository’s `LICENSE` if present; otherwise inherit the license of the parent project you vendor this module from.
+This project is licensed under the **Apache License 2.0**. See [`LICENSE`](./LICENSE).
