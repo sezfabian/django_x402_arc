@@ -34,7 +34,7 @@ Secondary fit:
 ### 1) Core Django module
 
 - Implemented a reusable decorator: `django_arc_monitize_api.decorators.monetize`.
-- Works for both sync and async Django views.
+- Supports async Django views for x402 payment enforcement.
 - On missing/invalid payment signature, returns proper HTTP 402 payload + headers.
 - On successful verification/settlement, injects `request.payer` and runs business logic.
 
@@ -49,22 +49,24 @@ Secondary fit:
 
 ### 3) Real demo app
 
-Built `test_django_api_project` to prove practical use:
+Built `django_arc_demo` to prove practical use:
 
-- Added a free endpoint and a paid endpoint:
-  - `GET /api/hello/` (free)
-  - `GET /api/hello/paid/` (paywalled)
-- Applied micro-pricing via `@monetize("0.000001")`.
+- Demo repository: `https://github.com/sezfabian/django_arc_demo`
+- Added one free endpoint and two paid endpoints:
+  - `GET /api/free/` (free)
+  - `GET /api/cheap/` (paywalled)
+  - `GET /api/expensive/` (paywalled)
+- Applied endpoint-level pricing with `@monetize("...")`.
 - Added `.env`-driven config loading so local setup is reproducible.
 
 ### 4) Real-life simulation (not pytest)
 
-- Added `scripts/micro_pay_sim.py`:
-  - calls the decorated paid API repeatedly over HTTP
-  - performs x402 negotiation + payment via `GatewayClient`
-  - prints per-call result and transaction identifiers from payment response
-  - supports `NUM_CALLS=50` to satisfy high-frequency proof requirements
-- Added `scripts/gen_buyer_wallet.py` to create a test buyer keypair quickly.
+- Added `scripts/call_local_endpoints.py` in the demo project:
+  - calls free and paid endpoints repeatedly over HTTP
+  - performs x402 negotiation + payment for paid routes via `GatewayClient`
+  - prints per-call result and appends a Markdown run log
+  - supports high-frequency runs (default includes 50 calls to `/api/cheap/`)
+- Added `scripts/gen_buyer_wallet.py` in the demo project to create a test buyer keypair quickly.
 
 ## Application architecture (request flow)
 
@@ -86,8 +88,8 @@ This turns API access itself into the economic unit.
 
 ### Requirement 2: Transaction frequency data (50+ in demo)
 
-- Simulation supports and demonstrates 50 sequential paid API calls (`NUM_CALLS=50`).
-- The runner logs each call with payment status and transaction identifiers from response headers/body.
+- Simulation demonstrates 50 paid calls to `/api/cheap/` in one run.
+- The runner logs each call with payment status and API response details.
 - This produces a measurable frequency trace for evaluation.
 
 ### Requirement 3: Margin explanation (why traditional gas fails)
@@ -105,8 +107,8 @@ In contrast, this model keeps endpoint pricing at micro-values while using Gatew
 - [ ] Django server running with Arc/Circle environment variables
 - [ ] Seller address configured (`ARC_PAY_SELLER_ADDRESS`)
 - [ ] Buyer wallet funded and deposited into Gateway
-- [ ] Run 50-call simulation:
-  - `NUM_CALLS=50 ./venv/bin/python scripts/micro_pay_sim.py`
+- [ ] Run local endpoint simulation:
+  - `python scripts/call_local_endpoints.py --base-url http://127.0.0.1:8000 --log-file run1.md`
 - [ ] Capture output logs (status + transaction identifiers)
 - [ ] Explain margin model and track alignment in submission notes
 
@@ -114,9 +116,10 @@ In contrast, this model keeps endpoint pricing at micro-values while using Gatew
 
 - Module: `django_arc_monitize_api/decorators.py`
 - Gateway bootstrapping: `django_arc_monitize_api/logic.py`
-- Demo endpoint: `test_django_api_project/core/views.py`
-- 50-call runner: `test_django_api_project/scripts/micro_pay_sim.py`
-- Buyer wallet helper: `test_django_api_project/scripts/gen_buyer_wallet.py`
+- Demo endpoints: `django_arc_demo/pay_apis/views.py`
+- Endpoint runner: `django_arc_demo/scripts/call_local_endpoints.py`
+- Buyer wallet helper: `django_arc_demo/scripts/gen_buyer_wallet.py`
+- Demo repository: `https://github.com/sezfabian/django_arc_demo`
 
 ## Feedback from building
 
@@ -130,4 +133,4 @@ In contrast, this model keeps endpoint pricing at micro-values while using Gatew
 ## Defects and work to be done
 
 - **Dynamic payment values per endpoint:** today prices are set in code via `@monetize("...")`. A better production design is a configuration table (for example DB-backed endpoint pricing) so payment amounts can be updated without redeploying or editing code.
-- **Sync endpoint reliability under high frequency:** for non-async endpoints, payments can occasionally fail during frequent transaction bursts. The async path is more stable; future work is to harden sync execution for repeated high-throughput payment verification/settlement.
+- **Async endpoint support for x402:** paid endpoints are currently documented and supported on async Django views. Future work may revisit robust sync compatibility.

@@ -11,7 +11,7 @@ Drop-in [Django](https://www.djangoproject.com/) integration for **x402-style US
 - Uses Circle’s **Gateway / batching** flow (via `circlekit`) to **verify and settle** the `PAYMENT-SIGNATURE` header against your seller address and chain.
 - Returns **HTTP 402** with the correct **payment-required** payload and headers when no valid payment is present.
 - On success, attaches **`request.payer`** (payer address from the settled payment) and runs your view.
-- Supports **async** views (`async def`, `await` gateway) and **sync** views (gateway bridged with `async_to_sync`).
+- Supports **async** views (`async def`) for x402 payment verification and settlement.
 
 You do **not** need to add this project to `INSTALLED_APPS` unless you extend it with Django app features (models, migrations, etc.). Configure Django settings and import the decorator.
 
@@ -120,21 +120,9 @@ from django_arc_monitize_api.decorators import monetize
 
 **Header:** Clients must send a valid **`PAYMENT-SIGNATURE`** header when retrying after a 402 (the Circle / x402 client libraries produce this).
 
-### Sync view example
+> **Important:** x402-protected endpoints are supported on **async Django views only**. Define paywalled views with `async def` and run under ASGI.
 
-```python
-from django.http import JsonResponse
-from django_arc_monitize_api.decorators import monetize
-
-@monetize("0.005")
-def expensive_report(request):
-    return JsonResponse(
-        {"report": "...", "paid_by": request.payer},
-        json_dumps_params={"indent": 2},
-    )
-```
-
-### Async view example (recommended under ASGI)
+### Async view example
 
 ```python
 from django.http import JsonResponse
@@ -153,7 +141,6 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
-    path("api/report/", views.expensive_report),
     path("api/embed/", views.premium_embedding),
 ]
 ```
@@ -234,7 +221,7 @@ If still 402 after signature, verify these match across server and buyer flow:
 | **Paid HTTP APIs** | Same Django views and URL patterns; payment is enforced before business logic. |
 | **Metered “credits” in USDC** | Fixed price per endpoint or wrap different views with different `@monetize("…")` amounts. |
 | **Arc / testnet demos** | Defaults target Arc testnet; swap `ARC_PAY_NETWORK` / `ARC_RPC_URL` for other supported chains. |
-| **Premium JSON / ML / data endpoints** | Return JSON from sync or async views after payment without building custom 402 plumbing. |
+| **Premium JSON / ML / data endpoints** | Return JSON from async views after payment without building custom 402 plumbing. |
 
 ---
 
@@ -252,6 +239,7 @@ pytest
 
 - **Circle + titanoboa SDK:** middleware and `process_request` behavior — see the **circle-titanoboa-sdk** README (`create_gateway_middleware`, `GatewayClient`, networks).
 - **x402:** [x402 HTTP payment required](https://github.com/coinbase/x402) (protocol context; header names and flows align with that ecosystem).
+- **Demo Django project:** [django_arc_demo](https://github.com/sezfabian/django_arc_demo) (example app showing local `/api/free/`, `/api/cheap/`, and `/api/expensive/` endpoints with this package).
 
 ---
 
